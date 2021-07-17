@@ -1,6 +1,7 @@
 package com.priyanshuthakuria.musicplayer.service;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -65,6 +66,28 @@ public class MusicPlayerService extends Service implements MediaPlayer.OnComplet
 
     }
 
+    //The system calls this method when an activity, requests the service be started
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        try {
+            //An audio file is passed to the service through putExtra();
+            mediaFile = intent.getExtras().getString("media");
+        } catch (NullPointerException e) {
+            stopSelf();
+        }
+
+        //Request audio focus
+        if (requestAudioFocus() == false) {
+            //Could not gain focus
+            stopSelf();
+        }
+
+        if (mediaFile != null && mediaFile != "")
+            initMediaPlayer();
+
+        return super.onStartCommand(intent, flags, startId);
+    }
+
     @Override
     public void onCompletion(MediaPlayer mp) {
         stopMedia();
@@ -100,6 +123,16 @@ public class MusicPlayerService extends Service implements MediaPlayer.OnComplet
     @Override
     public void onSeekComplete(MediaPlayer mp) {
 
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (mediaPlayer != null) {
+            stopMedia();
+            mediaPlayer.release();
+        }
+        removeAudioFocus();
     }
 
     public class LocalBinder extends Binder {
@@ -156,5 +189,21 @@ public class MusicPlayerService extends Service implements MediaPlayer.OnComplet
             mediaPlayer.seekTo(resumePosition);
             mediaPlayer.start();
         }
+    }
+
+    private boolean requestAudioFocus() {
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        int result = audioManager.requestAudioFocus(this, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+        if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            //Focus gained
+            return true;
+        }
+        //Could not gain focus
+        return false;
+    }
+
+    private boolean removeAudioFocus() {
+        return AudioManager.AUDIOFOCUS_REQUEST_GRANTED ==
+                audioManager.abandonAudioFocus(this);
     }
 }
